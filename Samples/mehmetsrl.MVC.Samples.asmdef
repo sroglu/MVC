@@ -1,0 +1,16 @@
+{
+    "name": "mehmetsrl.MVC.Samples",
+    "rootNamespace": "mehmetsrl.MVC.Samples",
+    "references": [
+        "mehmetsrl.MVC"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": false,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
