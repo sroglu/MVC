@@ -21,24 +21,59 @@ namespace mehmetsrl.MVC.core
         public ModelType modelType { get { return _modelType; } }
         ModelType _modelType = ModelType.Array;
 
+        /// <summary>
+        /// The scoped context this model is registered with (null for legacy/array models).
+        /// </summary>
+        protected MvcContext Context { get; }
 
+        #region Legacy static registry (backward compat)
+        [Obsolete("Use MvcContext model registry instead")]
         protected static readonly Dictionary<uint, IModel> modelDictionary = new Dictionary<uint, IModel>();
 
-        protected uint RegisterNewModel()
-        {
-            _instanceId = (uint)modelDictionary.Count + 1;
-            modelDictionary.Add(_instanceId, this);
-            _modelType = ModelType.Single;
-            return _instanceId;
-        }
+        [Obsolete("Use MvcContext.GetModel<T>() or MvcContext.GetModelById() instead")]
         public static IModel GetModelByInstanceId(uint instanceId)
         {
             return modelDictionary[instanceId];
         }
 
+        [Obsolete("Use MvcContext.Dispose() for cleanup")]
         public static void ResetDictionary()
         {
             modelDictionary.Clear();
+        }
+        #endregion
+
+        protected uint RegisterNewModel()
+        {
+            if (Context != null)
+            {
+                _instanceId = Context.RegisterModel(this);
+            }
+            else
+            {
+#pragma warning disable CS0618
+                _instanceId = (uint)modelDictionary.Count + 1;
+                modelDictionary.Add(_instanceId, this);
+#pragma warning restore CS0618
+            }
+            _modelType = ModelType.Single;
+            return _instanceId;
+        }
+
+        /// <summary>
+        /// Constructor with scoped context.
+        /// </summary>
+        protected ModelBase(MvcContext context)
+        {
+            Context = context;
+        }
+
+        /// <summary>
+        /// Backward-compatible constructor — uses legacy static dictionary.
+        /// </summary>
+        protected ModelBase()
+        {
+            Context = null;
         }
 
         public virtual void Dispose()
@@ -49,8 +84,17 @@ namespace mehmetsrl.MVC.core
         {
             if (modelType == ModelType.Single)
             {
-                if (modelDictionary.ContainsKey(instanceId))
-                    modelDictionary.Remove(instanceId);
+                if (Context != null)
+                {
+                    Context.UnregisterModel(instanceId);
+                }
+                else
+                {
+#pragma warning disable CS0618
+                    if (modelDictionary.ContainsKey(instanceId))
+                        modelDictionary.Remove(instanceId);
+#pragma warning restore CS0618
+                }
             }
         }
 
@@ -72,9 +116,12 @@ namespace mehmetsrl.MVC.core
             return instanceId;
         }
 
+        [Obsolete("Use MvcContext.GetModel<T>() instead")]
         public static new Model<T> GetModelByInstanceId(uint instanceId)
         {
+#pragma warning disable CS0618
             return ModelBase.GetModelByInstanceId(instanceId) as Model<T>;
+#pragma warning restore CS0618
         }
 
         protected T DescriptionData { get; private set; }
@@ -84,14 +131,42 @@ namespace mehmetsrl.MVC.core
         public Model<T>[] SubModels { get { return subModels; } }
         private Model<T>[] subModels;
 
-        public Model(T data)
+        /// <summary>
+        /// Constructor with scoped context.
+        /// </summary>
+        public Model(MvcContext context, T data) : base(context)
         {
             DescriptionData = data;
             UpdateCurrentData();
             RegisterNewModel();
         }
 
-        public Model(T[] dataArr)
+        /// <summary>
+        /// Backward-compatible constructor — uses legacy static dictionary.
+        /// </summary>
+        [Obsolete("Use the constructor with MvcContext parameter")]
+        public Model(T data) : base()
+        {
+            DescriptionData = data;
+            UpdateCurrentData();
+            RegisterNewModel();
+        }
+
+        /// <summary>
+        /// Constructor with scoped context for array data.
+        /// </summary>
+        public Model(MvcContext context, T[] dataArr) : base(context)
+        {
+            DescriptionDataArr = dataArr;
+            UpdateCurrentData();
+            CreateSubModels(out subModels);
+        }
+
+        /// <summary>
+        /// Backward-compatible constructor for array data.
+        /// </summary>
+        [Obsolete("Use the constructor with MvcContext parameter")]
+        public Model(T[] dataArr) : base()
         {
             DescriptionDataArr = dataArr;
             UpdateCurrentData();

@@ -13,13 +13,15 @@ Designed to be **input-source-agnostic**: the assembly does not reference `Unity
 
 ## Key Classes
 
-- **`ControllerBase`** — Abstract base controller with `Redirect(actionName, …)` action broadcast and `OnActionRedirected` override.
+- **`MvcContext`** — Scoped container for controller routing, model registry, and event dispatch. Replaces global static state. Each game section creates its own context; disposing cleans up all references.
+- **`IEventHandler<TEvent>`** — Generic typed event handler interface for type-safe broadcasts.
+- **`ControllerBase`** — Abstract base controller. Takes `MvcContext` at construction; registers/unregisters automatically. Legacy string-based `Redirect()` is marked `[Obsolete]` — use `Context.Redirect<T>` or `Context.Broadcast<T>`.
 - **`Controller<V, M>`** — Typed controller; `View` (V) and `Model` (M) auto-resolved (page view from `ViewManager`'s pre-registered list, or new instance view from prefab list).
 - **`ControllerType`** — `Page` (uses pre-designed page view, hidden by default) or `Instance` (instantiated at runtime).
 - **`IController`** / **`IModel`** — Interfaces.
 - **`ViewBase`** — Abstract `MonoBehaviour` view; exposes `Show`/`Hide`, `IsPointerOn`, `OnCreate`/`OnRemove`/`OnStateChanged` hooks.
 - **`View<M>`** — Generic typed view bound to a model.
-- **`ModelBase`** / **`Model<T>`** — Auto-registered models with cloneable description data; supports single + array models.
+- **`ModelBase`** / **`Model<T>`** — Auto-registered models with cloneable description data; supports single + array models. Takes optional `MvcContext` for scoped registry.
 - **`ViewManager`** — Singleton MonoBehaviour managing the page view roster and the instance prefab list. Tracks page-view history (`ShowPageView` / `ShowLastPageView`).
 - **`EmptyModel`**, **`EmptyView`**, **`EmptyData`** — No-op implementations for controllers that don't need all three pieces.
 
@@ -82,11 +84,37 @@ Tests/                 (EditMode unit tests — mehmetsrl.MVC.Tests)
 Samples/               (Counter sample, autoReferenced=false — see Samples/MODULE.md)
 ```
 
+## Migration: Static → Scoped MvcContext
+
+**Old pattern** (still compiles, marked `[Obsolete]`):
+```csharp
+var model = new MyModel(data);
+var ctrl = new MyController(ControllerType.Page, model);
+ctrl.Redirect("ActionName"); // global broadcast
+```
+
+**New pattern** (recommended):
+```csharp
+var context = new MvcContext();
+var model = new MyModel(context, data);
+var ctrl = new MyController(context, ControllerType.Page, model);
+
+// Type-safe redirect to specific controller
+context.Redirect<OtherController>(c => c.DoSomething());
+
+// Type-safe broadcast to all IEventHandler<T> implementors
+context.Broadcast(new ScoreChangedEvent { NewScore = 100 });
+
+// Cleanup — disposes all references
+context.Dispose();
+```
+
+Existing game projects (StrategyGame, TileMatch) using the legacy constructors continue to work without changes. The `[Obsolete]` warnings will guide migration.
+
 ## Known Limitations / Future Work
 
-- `Redirect(actionName, controllerName)` is **string-based**. Type-safe overloads (`Redirect<TController>(action)` or delegate-based) would catch typos at compile time. Not blocking — current API works.
-- `ControllerBase.RedirectToAction` is a **static delegate** chaining all controllers — global mutable state. Switching to per-`ViewManager` (or DI'd) event bus would isolate test scopes and allow multiple MVC contexts.
-- `ModelBase.modelDictionary` is a **static** registry — same caveat. Consider per-context model registry.
+- Legacy `Redirect(string)` still works within scoped contexts for backward compatibility but is marked `[Obsolete]`.
+- `ViewManager` remains a global MonoBehaviour singleton — it is a view factory, not a routing component, so context-scoping is not needed.
 
 ## Downstream Dependents
 

@@ -1,6 +1,7 @@
 using System;
 using mehmetsrl.MVC.core;
 
+#pragma warning disable CS0618 // Samples demonstrate both legacy and scoped patterns
 namespace mehmetsrl.MVC.Samples
 {
     /// <summary>
@@ -19,6 +20,9 @@ namespace mehmetsrl.MVC.Samples
     /// </summary>
     public class CounterPageController : Controller<CounterView, CounterModel>
     {
+        public CounterPageController(MvcContext context, CounterModel model)
+            : base(context, ControllerType.Page, model) { }
+
         public CounterPageController(CounterModel model)
             : base(ControllerType.Page, model) { }
 

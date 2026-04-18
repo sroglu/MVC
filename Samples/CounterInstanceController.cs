@@ -1,6 +1,7 @@
 using System;
 using mehmetsrl.MVC.core;
 
+#pragma warning disable CS0618 // Samples demonstrate both legacy and scoped patterns
 namespace mehmetsrl.MVC.Samples
 {
     /// <summary>
@@ -21,6 +22,9 @@ namespace mehmetsrl.MVC.Samples
     /// </summary>
     public class CounterInstanceController : Controller<CounterView, CounterModel>
     {
+        public CounterInstanceController(MvcContext context, CounterModel model)
+            : base(context, ControllerType.Instance, model) { }
+
         public CounterInstanceController(CounterModel model)
             : base(ControllerType.Instance, model) { }
 

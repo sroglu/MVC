@@ -27,61 +27,75 @@ namespace mehmetsrl.MVC.core
     /// </summary>
     public abstract class ControllerBase : IController
     {
-        static Action<IController, string, string, EventArgs> RedirectToAction;
+        /// <summary>
+        /// The scoped context this controller belongs to.
+        /// </summary>
+        protected MvcContext Context { get; }
 
         #region Properties
         protected ControllerType ControllerType = ControllerType.Instance;
-
         #endregion
-        protected ControllerBase(ControllerType controllerType)
+
+        protected ControllerBase(MvcContext context, ControllerType controllerType)
         {
+            Context = context ?? throw new ArgumentNullException(nameof(context));
             ControllerType = controllerType;
-            RedirectToAction += OnRedirectToAction;
+            Context.Register(this);
         }
 
-        #region UtilityFunctions    
         /// <summary>
-        /// Getter function for model.
+        /// Backward-compatible constructor — creates/uses a default shared context.
         /// </summary>
-        /// <returns>Model</returns>
+        [Obsolete("Use the constructor with MvcContext parameter for scoped routing")]
+        protected ControllerBase(ControllerType controllerType)
+            : this(DefaultContext, controllerType)
+        {
+        }
+
+        #region Default Context (backward compat)
+        private static MvcContext _defaultContext;
+        private static MvcContext DefaultContext => _defaultContext ??= new MvcContext();
+
+        /// <summary>
+        /// Resets the default shared context. Used for test cleanup when using legacy constructors.
+        /// </summary>
+        internal static void ResetDefaultContext()
+        {
+            _defaultContext?.Dispose();
+            _defaultContext = null;
+        }
+        #endregion
+
+        #region UtilityFunctions
         public abstract IModel GetModel();
-        /// <summary>
-        /// Getter function for view.
-        /// </summary>
-        /// <returns>View</returns>
         public abstract ViewBase GetView();
+
         /// <summary>
-        /// Redirect an event to all controllers
-        /// If controller has implementation proccess it
+        /// Broadcast to all controllers in this context (legacy string-based).
         /// </summary>
-        /// <param name="actionName">Action name</param>
-        /// <param name="data">Additional data</param>
+        [Obsolete("Use Context.Redirect<T> or Context.Broadcast<T> for type-safe routing")]
         protected void Redirect(string actionName, EventArgs data = null)
         {
-            RedirectToAction(this, actionName, null, data);
+#pragma warning disable CS0618
+            Context.LegacyRedirect(this, actionName, null, data);
+#pragma warning restore CS0618
         }
 
         /// <summary>
-        /// Redirect an event to specified controller
-        /// Controller should not be an instance type controller
+        /// Targeted redirect to a specific controller type by name (legacy string-based).
         /// </summary>
-        /// <param name="actionName">Action name</param>
-        /// <param name="controllerName">Target controller that handle the event</param>
-        /// <param name="data">Additional data</param>
+        [Obsolete("Use Context.Redirect<T> for type-safe routing")]
         protected void Redirect(string actionName, string controllerName, EventArgs data = null)
         {
-            RedirectToAction(this, actionName, controllerName, data);
+#pragma warning disable CS0618
+            Context.LegacyRedirect(this, actionName, controllerName, data);
+#pragma warning restore CS0618
         }
 
         /// <summary>
-        /// Distributes redirect calls.
-        /// If controller name is null it triggers for all controllers
+        /// Called by MvcContext for legacy string-based routing dispatch.
         /// </summary>
-        /// <param name="source">Source controller that redirects event</param>
-        /// <param name="actionName">Action name</param>
-        /// <param name="controllerName">Target controller that handle the event</param>
-        /// <param name="data">Additional data</param>
-        void OnRedirectToAction(IController source, string actionName, string controllerName, EventArgs data)
+        internal void HandleLegacyRedirect(IController source, string actionName, string controllerName, EventArgs data)
         {
             if (controllerName == null || controllerName == GetType().ToString())
             {
@@ -95,11 +109,12 @@ namespace mehmetsrl.MVC.core
         /// Handle function for redirected events
         /// All controllers implement the events they responsible.
         /// </summary>
-        /// <param name="source"></param>
-        /// <param name="actionName"></param>
-        /// <param name="data"></param>
         protected virtual void OnActionRedirected(IController source, string actionName, EventArgs data) { }
-        public abstract void Dispose();
+
+        public virtual void Dispose()
+        {
+            Context.Unregister(this);
+        }
         #endregion
     }
 
@@ -153,6 +168,22 @@ namespace mehmetsrl.MVC.core
         protected M Model { get; private set; }
         #endregion
 
+        public Controller(MvcContext context, ControllerType controllerType, M model, V view = null) : base(context, controllerType)
+        {
+            Model = model;
+            View = view;
+
+            View.Init(this);
+            OnCreate();
+
+            if (ControllerType == ControllerType.Page)
+                View.Hide();
+        }
+
+        /// <summary>
+        /// Backward-compatible constructor — uses default shared context.
+        /// </summary>
+        [Obsolete("Use the constructor with MvcContext parameter for scoped routing")]
         public Controller(ControllerType controllerType, M model, V view = null) : base(controllerType)
         {
             Model = model;
@@ -170,6 +201,7 @@ namespace mehmetsrl.MVC.core
             OnDestroy();
             Model.Dispose();
             View.Dispose();
+            base.Dispose();
         }
         public override sealed IModel GetModel()
         {
