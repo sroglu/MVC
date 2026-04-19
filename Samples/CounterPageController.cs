@@ -1,7 +1,5 @@
-using System;
 using mehmetsrl.MVC.core;
 
-#pragma warning disable CS0618 // Samples demonstrate both legacy and scoped patterns
 namespace mehmetsrl.MVC.Samples
 {
     /// <summary>
@@ -12,25 +10,23 @@ namespace mehmetsrl.MVC.Samples
     ///
     /// Usage:
     /// <code>
+    /// var ctx = new MvcContext();
     /// var data = new CounterData { Label = "Coins", Value = 0 };
-    /// var ctrl = new CounterPageController(new CounterModel(data));
+    /// var ctrl = new CounterPageController(ctx, new CounterModel(ctx, data));
     /// ViewManager.ShowPageView&lt;CounterView&gt;();
     /// ctrl.Add();
     /// </code>
     /// </summary>
-    public class CounterPageController : Controller<CounterView, CounterModel>
+    public class CounterPageController : Controller<CounterView, CounterModel>, IEventHandler<CounterChangedEvent>
     {
         public CounterPageController(MvcContext context, CounterModel model)
             : base(context, ControllerType.Page, model) { }
-
-        public CounterPageController(CounterModel model)
-            : base(ControllerType.Page, model) { }
 
         public void Add()
         {
             Model.Increment();
             View.UpdateView();
-            Redirect(SampleActions.CounterChanged);
+            Context.Broadcast(new CounterChangedEvent(Model.CurrentData.Value));
         }
 
         public void ResetCounter()
@@ -39,10 +35,9 @@ namespace mehmetsrl.MVC.Samples
             View.UpdateView();
         }
 
-        protected override void OnActionRedirected(IController source, string action, EventArgs data)
+        public void Handle(CounterChangedEvent evt)
         {
             // Listen to peer controllers if needed.
-            // if (action == SampleActions.SomeOtherAction) { ... }
         }
     }
 }

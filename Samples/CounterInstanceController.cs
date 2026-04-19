@@ -1,7 +1,5 @@
-using System;
 using mehmetsrl.MVC.core;
 
-#pragma warning disable CS0618 // Samples demonstrate both legacy and scoped patterns
 namespace mehmetsrl.MVC.Samples
 {
     /// <summary>
@@ -12,21 +10,19 @@ namespace mehmetsrl.MVC.Samples
     ///
     /// Usage:
     /// <code>
+    /// var ctx = new MvcContext();
     /// foreach (var cfg in questConfigs)
     /// {
     ///     var data = new CounterData { Label = cfg.Name, Value = cfg.Starting };
-    ///     var ctrl = new CounterInstanceController(new CounterModel(data));
+    ///     var ctrl = new CounterInstanceController(ctx, new CounterModel(ctx, data));
     ///     // ctrl.View is a freshly instantiated GameObject; position it, parent it.
     /// }
     /// </code>
     /// </summary>
-    public class CounterInstanceController : Controller<CounterView, CounterModel>
+    public class CounterInstanceController : Controller<CounterView, CounterModel>, IEventHandler<CounterChangedEvent>
     {
         public CounterInstanceController(MvcContext context, CounterModel model)
             : base(context, ControllerType.Instance, model) { }
-
-        public CounterInstanceController(CounterModel model)
-            : base(ControllerType.Instance, model) { }
 
         public void Add(int amount)
         {
@@ -34,13 +30,10 @@ namespace mehmetsrl.MVC.Samples
             View.UpdateView();
         }
 
-        protected override void OnActionRedirected(IController source, string action, EventArgs data)
+        public void Handle(CounterChangedEvent evt)
         {
-            if (action == SampleActions.CounterChanged)
-            {
-                // Another counter changed — could refresh or react.
-                View.UpdateView();
-            }
+            // Another counter changed — could refresh or react.
+            View.UpdateView();
         }
     }
 }

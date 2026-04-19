@@ -1,6 +1,5 @@
 using mehmetsrl.MVC.core;
 
-#pragma warning disable CS0618 // Samples demonstrate both legacy and scoped patterns
 namespace mehmetsrl.MVC.Samples
 {
     /// <summary>
@@ -10,8 +9,6 @@ namespace mehmetsrl.MVC.Samples
     public class CounterModel : Model<CounterData>
     {
         public CounterModel(MvcContext context, CounterData data) : base(context, data) { }
-
-        public CounterModel(CounterData data) : base(data) { }
 
         public void Increment()
         {

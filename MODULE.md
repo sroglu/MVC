@@ -31,24 +31,23 @@ Designed to be **input-source-agnostic**: the assembly does not reference `Unity
 using mehmetsrl.MVC;
 using mehmetsrl.MVC.core;
 
-public class InventoryModel : Model<InventoryData> { public InventoryModel(InventoryData d) : base(d) { } }
+public readonly struct ItemSelectedEvent { public readonly int ItemId; public ItemSelectedEvent(int id) => ItemId = id; }
+
+public class InventoryModel : Model<InventoryData> { public InventoryModel(MvcContext ctx, InventoryData d) : base(ctx, d) { } }
 
 public class InventoryView : View<InventoryModel>
 {
     public override void UpdateView() { /* refresh UI */ }
 }
 
-public class InventoryController : Controller<InventoryView, InventoryModel>
+public class InventoryController : Controller<InventoryView, InventoryModel>, IEventHandler<ItemSelectedEvent>
 {
-    public InventoryController(InventoryModel model)
-        : base(ControllerType.Page, model) { }
+    public InventoryController(MvcContext context, InventoryModel model)
+        : base(context, ControllerType.Page, model) { }
 
-    public void OnItemClicked(int id) => Redirect("ItemSelected");
+    public void OnItemClicked(int id) => Context.Broadcast(new ItemSelectedEvent(id));
 
-    protected override void OnActionRedirected(IController src, string action, EventArgs data)
-    {
-        if (action == "InventoryRefresh") View.UpdateView();
-    }
+    public void Handle(ItemSelectedEvent evt) { View.UpdateView(); }
 }
 ```
 
@@ -113,7 +112,7 @@ Existing game projects (StrategyGame, TileMatch) using the legacy constructors c
 
 ## Known Limitations / Future Work
 
-- Legacy `Redirect(string)` still works within scoped contexts for backward compatibility but is marked `[Obsolete]`.
+- Legacy `Redirect(string)` still works within scoped contexts for backward compatibility but is marked `[Obsolete]`. Use `Context.Redirect<T>()` or `Context.Broadcast<T>()` for type-safe routing. Samples demonstrate the type-safe pattern.
 - `ViewManager` remains a global MonoBehaviour singleton — it is a view factory, not a routing component, so context-scoping is not needed.
 
 ## Downstream Dependents

@@ -1,13 +1,13 @@
 namespace mehmetsrl.MVC.Samples
 {
     /// <summary>
-    /// Centralised action-name constants. Demonstrates a workaround for the
-    /// string-based <see cref="mehmetsrl.MVC.core.ControllerBase"/>.Redirect
-    /// API — keep names in one place to avoid typos until type-safe overloads
-    /// land (see MVC/MODULE.md "Known Limitations").
+    /// Type-safe event structs for MVC sample broadcasts.
+    /// Replaces string-based action constants with strongly-typed events
+    /// used via <see cref="core.MvcContext.Broadcast{TEvent}"/>.
     /// </summary>
-    public static class SampleActions
+    public readonly struct CounterChangedEvent
     {
-        public const string CounterChanged = nameof(CounterChanged);
+        public readonly int NewValue;
+        public CounterChangedEvent(int newValue) => NewValue = newValue;
     }
 }
